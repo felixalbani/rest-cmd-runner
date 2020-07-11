@@ -1,0 +1,38 @@
+{
+  "name": "rest-cmd-runner",
+  "version": "1.0.0",
+  "description": "Command over REST API Runner",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixalbani/rest-cmd-runner.git"
+  },
+  "keywords": [
+    "rest",
+    "cmd",
+    "shell",
+    "script",
+    "run",
+    "execute",
+    "exec"
+  ],
+  "author": "Felix Albani",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/felixalbani/rest-cmd-runner/issues"
+  },
+  "homepage": "https://github.com/felixalbani/rest-cmd-runner#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.1.7-alpha.3",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  }
+}
