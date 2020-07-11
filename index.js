@@ -42,9 +42,9 @@ app.use(function (req, res, next) {
     }
 });
 
-// curl -H "Content-Type: application/json" -d '{"cmd":"ls -lrt"}'   -X POST 'http://localhost:4041/cmd'
+// curl -H "Content-Type: application/json" -u admin:admin -d '{"cmd":"ls -lrt"}' -X POST 'http://localhost:4041/cmd'
 // or with httpie
-// http POST localhost:4041/cmd cmd="ls -lrt"
+// http -a admin:admin POST localhost:4041/cmd cmd="ls -lrt"
 app.post('/cmd', (req, res) => {
     const { cmd } = req.body;
     console.log("Executing command" + cmd)
@@ -104,5 +104,5 @@ app.post('/script', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`sServer is running on port: ${PORT}`);
+    console.log(`Server is running on port: ${PORT}`);
 });
