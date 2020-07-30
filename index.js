@@ -5,6 +5,14 @@ const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+
+// terminal required modules
+var pty = require('node-pty');
+var terminal = require('term.js');
+var socket;
+var term;
+var buff = [];
 
 // constants
 const PORT = process.env.PORT || 4041;
@@ -14,6 +22,9 @@ const PASS = process.env.REST_PASS || 'admin';
 
 var app = express()
 
+app.use("/term", terminal.middleware());
+app.use(morgan('dev'));
+
 // enable files upload
 app.use(fileUpload({
     createParentPath: true
@@ -22,7 +33,6 @@ app.use(fileUpload({
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(morgan('dev'));
 
 app.use(function (req, res, next) {
     // Grab the "Authorization" header.
@@ -103,6 +113,74 @@ app.post('/script', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+
+app.use('/xterm.css', express.static(__dirname + '/node_modules/xterm/css/xterm.css'));
+
+app.get('/xterm.js', (req, res) => { 
+    res.sendFile(__dirname + '/node_modules/xterm/lib/xterm.js');
+});
+
+app.get('/xterm.js.map', (req, res) => { 
+    res.sendFile(__dirname + '/node_modules/xterm/lib/xterm.js.map');
+});
+
+app.get('/client.js', (req, res) => { 
+    res.sendFile(__dirname + '/client.js');
+});
+
+app.get('/term',function(req,res){
+    res.sendFile(path.join(__dirname+'/terminal2.html'));
+  });
+
+var server = app.listen(PORT, () => {
     console.log(`Server is running on port: ${PORT}`);
+});
+
+function startTerminal(){
+	// create shell process
+	term = pty.fork(
+		process.env.SHELL || 'sh', 
+		[], 
+		{
+			name: require('fs').existsSync('/usr/share/terminfo/x/xterm-256color')
+				? 'xterm-256color'
+				: 'xterm',
+			cols: 80,
+			rows: 24,
+			cwd: process.env.HOME
+		}
+	);
+
+	// store term's output into buffer or emit through socket
+	term.on('data', function(data) {
+		return !socket ? buff.push(data) : socket.emit('data', data);
+	});
+
+	console.log('Created shell with node-pty master/slave pair (master: %d, pid: %d)', term.fd, term.pid);
+    return term;
+}
+
+var term = startTerminal();
+
+// let socket.io handle sockets
+var io = require('socket.io')(server);
+var room = io.of('/term');
+room.on('connection', function(s) {
+    // when connect, store the socket
+    socket = s;
+
+    // handle incoming data (client -> server)
+    socket.on('data', function(data) {
+        term.write(data);
+    });
+
+    // handle connection lost
+    socket.on('disconnect', function() {
+        socket = null;
+    });
+
+    // send buffer data to client
+    while (buff.length) {
+        socket.emit('data', buff.shift());
+    };
 });

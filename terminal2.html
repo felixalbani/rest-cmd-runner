@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+	<script src="xterm.js"></script>
+	<link rel="stylesheet" href="xterm.css" />
+	<script src="client.js"></script>
+</head>
+<body>
+	<div id="terminal"></div>
+	<script>
+		var e = document.getElementById("terminal");
+		client.run({
+			parent: e,
+			remote: "http://127.0.0.1:4041/term"
+		})
+	</script>
+</body>
+</html>
