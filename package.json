@@ -1,6 +1,7 @@
 {
   "name": "rest-cmd-runner",
   "version": "1.0.0",
+  "bin": "./index.js",
   "description": "Command over REST API Runner",
   "main": "src/index.js",
   "scripts": {
@@ -39,5 +40,9 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
+  },
+  "pkg": {
+    "scripts": [ "client.js" ],
+    "assets": [ "./terminal2.html","./node_modules/xterm/css/xterm.css" ]
   }
 }
