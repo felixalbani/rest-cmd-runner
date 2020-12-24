@@ -757,10 +757,10 @@ execa@1.0.0:
     signal-exit "^3.0.0"
     strip-eof "^1.0.0"
 
-express-fileupload@^1.1.7-alpha.3:
-  version "1.1.7-alpha.4"
-  resolved "https://registry.yarnpkg.com/express-fileupload/-/express-fileupload-1.1.7-alpha.4.tgz#c87dcb7880fe2e5a1d15ea97a225719c5ac0a30d"
-  integrity sha512-uNl/TB3adUH25cDRp1gDoXQ38SdIZXOAVzC54G/xnOAa4M3maBWiZTVz39cnoQ7TXhmYXYpnOfMDMbqSelXFmQ==
+express-fileupload@^1.1.10:
+  version "1.1.10"
+  resolved "https://registry.yarnpkg.com/express-fileupload/-/express-fileupload-1.1.10.tgz#c4a223b2020e5175498ab684566fc430ec9c8b15"
+  integrity sha512-VEbeJBMDl+N+I/vXjQ17Xg+R35El6l6n/EELcSSpnwQbjqFmtAfXY9p5NpBpto5FqnksIleYImJ1jNlIWlP2aw==
   dependencies:
     busboy "^0.3.1"
 
