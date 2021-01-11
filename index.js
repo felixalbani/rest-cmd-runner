@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 
 // terminal required modules
 var pty = require('node-pty');
@@ -27,6 +28,7 @@ app.use(morgan('dev'));
 
 // enable files upload
 app.use(fileUpload({
+    limits: { fileSize: 10 * 1024 * 1024 },
     createParentPath: true
 }));
 
@@ -65,6 +67,49 @@ app.post('/cmd', (req, res) => {
         res.send(result);
     });
 });
+
+// curl -H "Content-Type: multipart/form-data" -u admin:admin -F 'interpreter="/bin/bash -s hellooooooo"' -F "env1=value1" -F "env2=value2" -F "script=@test.sh" -F "testfile=@testfile" -X POST 'http://localhost:4041/pipeexec'
+// uploads all files not called "script" to the upload dir and executes 'script' via pipe to the interpreter with the other form fields not called 'interpreter' as env vars
+
+app.post('/pipeexec', (req, res) => {
+    try {
+        let script = req.files.script;
+        console.log('files passed '+util.inspect(req.body, {depth: 3}));
+        const { interpreter } = req.body;
+
+        for (const [key, value] of Object.entries(req.files)) {
+            if(key !== "script") {
+                const fullname = UPLOAD_DIR + '/' + req.files[key].name;
+                //Use the mv() method to place the file in upload directory (i.e. "uploads")
+                req.files[key].mv(fullname, (err) => {
+                    if (err)
+                        res.status(500).send(err);
+                });
+            }
+        }
+        env={};
+        for (const [key, value] of Object.entries(req.body)) {
+            if(key !== "interpreter") {
+                env[key]=value;
+            }
+        }
+        const process = exec(interpreter,{ "cwd": UPLOAD_DIR, "env": env} , function (error, stdout, stderr) {
+            result = { 'cmd': interpreter, 'stdout': stdout, 'stderr': stderr, 'error': {} }
+            if (error) {
+                result["code"] = error.code;
+            } else {
+                result["code"] = 0;
+            }
+            res.send(result);
+        });
+        process.stdio[0].write(script.data.toString('utf8'));
+        process.stdio[0].end();
+    } catch (err) {
+        console.log(err);
+        res.status(500).send(err);
+    }
+});
+
 
 // http -a admin:admin -f POST localhost:4041/script interpreter="bash -x" script="sleep 10\necho 'hello'" separator="\n"
 // http -a admin:admin -f POST localhost:4041/script interpreter="ruby" script@./sample_scripts/helloworld.rb
@@ -130,6 +175,10 @@ app.get('/client.js', (req, res) => {
 
 app.get('/term',function(req,res){
     res.sendFile(path.join(__dirname+'/terminal2.html'));
+  });
+
+app.get('/ping',function(req,res){
+    res.status(200).send("pong");
   });
 
 var server = app.listen(PORT, () => {
