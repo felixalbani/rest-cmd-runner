@@ -59,7 +59,7 @@ app.use(function (req, res, next) {
 // http -a admin:admin POST localhost:4041/cmd cmd="ls -lrt"
 app.post('/cmd', (req, res) => {
     const { cmd } = req.body;
-    console.log("Executing command" + cmd)
+    // console.log("Executing command" + cmd)
     const process = exec(cmd, function (error, stdout, stderr) {
         result = { 'cmd': cmd, 'stdout': stdout, 'stderr': stderr, 'error': {} }
         if (error)
@@ -74,7 +74,7 @@ app.post('/cmd', (req, res) => {
 app.post('/pipeexec', (req, res) => {
     try {
         let script = req.files.script;
-        console.log('files passed '+util.inspect(req.body, {depth: 3}));
+        // console.log('files passed '+util.inspect(req.body, {depth: 3}));
         const { interpreter } = req.body;
 
         for (const [key, value] of Object.entries(req.files)) {
@@ -93,6 +93,7 @@ app.post('/pipeexec', (req, res) => {
                 env[key]=value;
             }
         }
+        // console.log("before exec:", interpreter,{ "cwd": UPLOAD_DIR, "env": env});
         const process = exec(interpreter,{ "cwd": UPLOAD_DIR, "env": env} , function (error, stdout, stderr) {
             result = { 'cmd': interpreter, 'stdout': stdout, 'stderr': stderr, 'error': {} }
             if (error) {
@@ -102,10 +103,11 @@ app.post('/pipeexec', (req, res) => {
             }
             res.send(result);
         });
+        // console.log("pre-write:",script.data.toString('utf8'), util.inspect(process.stdio, {depth: 3}));
         process.stdio[0].write(script.data.toString('utf8'));
         process.stdio[0].end();
     } catch (err) {
-        console.log(err);
+        console.log("pipeexec catch", err);
         res.status(500).send(err);
     }
 });
