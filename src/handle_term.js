@@ -139,6 +139,10 @@ class Terminal {
                 that.socket = null;
             });
 
+            that.socket.on('resize', function(data) {
+                that.term.resize(data.cols, data.rows);
+            });
+
             // send buffer data to client
             while (that.buff.length) {
                 that.socket.emit('data', that.buff.shift());
