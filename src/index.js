@@ -23,10 +23,11 @@ app.use(fileUpload({
 }));
 
 app.use(cors());
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(function (req, res, next) {
+const auth = function (req, res, next) {
     // Grab the "Authorization" header.
     var auth = req.get("authorization");
 
@@ -42,9 +43,9 @@ app.use(function (req, res, next) {
             return res.status(401).send("Access Denied (incorrect credentials)");
         }
     }
-});
+};
 
-handle_cmd.use(app, UPLOAD_DIR);
+handle_cmd.use(app, auth, UPLOAD_DIR);
 handle_term.use(app, EXTERNAL_URL);
 
 handle_term.term.start_terminal();

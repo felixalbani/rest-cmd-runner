@@ -23,7 +23,7 @@ exports.use = function (app, EXTERNAL_URL) {
     <!doctype html>
     <html>
     <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.1/socket.io.js"></script>
         <script src="xterm.js"></script>
         <link rel="stylesheet" href="xterm.css" />
     </head>
@@ -69,7 +69,7 @@ exports.use = function (app, EXTERNAL_URL) {
 
             client.run({
                 parent: e,
-                remote: "${EXTERNAL_URL}/term"
+                remote: "${EXTERNAL_URL}"
             })
         </script>
     </body>
@@ -117,10 +117,15 @@ class Terminal {
     
     handle_io(server){
         var that = this;
-        // let socket.io handle sockets
-        var io = require('socket.io')(server);
-        var room = io.of('/term');
-        room.on('connection', function (s) {
+       
+        var io = require('socket.io')(server, {
+            allowEIO3: true, // false by default
+            cors: {
+              origin: '*',
+            }
+          });
+        //var room = io.of('/term');
+        io.on('connection', function (s) {
             // when connect, store the socket
             that.socket = s;
 

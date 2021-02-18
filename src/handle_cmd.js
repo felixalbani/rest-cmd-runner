@@ -2,12 +2,12 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-exports.use = function(app, UPLOAD_DIR){
+exports.use = function(app, auth, UPLOAD_DIR){
 
     // curl -H "Content-Type: application/json" -u admin:admin -d '{"cmd":"ls -lrt"}' -X POST 'http://localhost:4041/cmd'
     // or with httpie
     // http -a admin:admin POST localhost:4041/cmd cmd="ls -lrt"
-    app.post('/cmd', (req, res) => {
+    app.post('/cmd', auth, (req, res) => {
         const { cmd } = req.body;
         console.log("Executing command" + cmd)
         const process = exec(cmd, function (error, stdout, stderr) {
@@ -20,7 +20,7 @@ exports.use = function(app, UPLOAD_DIR){
 
     // http -a admin:admin -f POST localhost:4041/script interpreter="bash -x" script="sleep 10\necho 'hello'" separator="\n"
     // http -a admin:admin -f POST localhost:4041/script interpreter="ruby" script@./sample_scripts/helloworld.rb
-    app.post('/script', (req, res) => {
+    app.post('/script', auth, (req, res) => {
         try {
             if (!req.files) {
                 const {interpreter, script, separator} = req.body; 
