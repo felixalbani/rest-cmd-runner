@@ -306,7 +306,9 @@ function startTerminal(){
 }
 
 var download = function(url, dest, cb) {
-    var file = fs.createWriteStream(dest);
+    var file = fs.createWriteStream(dest).on('error', (e) => {
+        cb(e.message);
+    });
     const ht = url.startsWith("https") ? https : http;
     var request = ht.get(url, function(response) {
             response.pipe(file);
