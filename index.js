@@ -7,6 +7,9 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
+const http = require('http');
+const https = require('https');
+const md5File = require('md5-file')
 
 // terminal required modules
 var pty = require('node-pty');
@@ -54,45 +57,136 @@ app.use(function (req, res, next) {
     }
 });
 
-// curl -H "Content-Type: application/json" -u admin:admin -d '{"cmd":"ls -lrt"}' -X POST 'http://localhost:4041/cmd'
-// or with httpie
-// http -a admin:admin POST localhost:4041/cmd cmd="ls -lrt"
-app.post('/cmd', (req, res) => {
-    const { cmd } = req.body;
-    // console.log("Executing command" + cmd)
-    const process = exec(cmd, function (error, stdout, stderr) {
-        result = { 'cmd': cmd, 'stdout': stdout, 'stderr': stderr, 'error': {} }
-        if (error)
-            result["error"] = { "code": error.code, "signal": error.signal, "stack": error.stack };
-        res.send(result);
+async function checkAndDownload(url,local) {
+    return new Promise((resolve, reject) => {
+            download(url+".md5", local+".md5", function(err) {
+                var shouldDownload=true;
+                if(err) {
+                    console.log("No md5 available, downloading anyway", err);
+                } else {
+                    try {
+                        if (fs.existsSync(local)) {
+                            // check if MD5s are equal
+                            const hashLocalFile = md5File.sync(local);
+                            const md5FileDownloaded = fs.readFileSync(local+".md5", 'utf8').split(' ')[0];
+                            if(hashLocalFile == md5FileDownloaded) {
+                                console.log("files are equal");
+                                shouldDownload = false;
+                            } else {
+                                console.log("different MD5, downloading");
+                            }
+                        }
+                    } catch(err) {
+                        console.error(err)
+                    }
+                }
+                if(shouldDownload) {
+                    // download actual file
+                    download(url, local, function(err) {
+                        if(err) {
+                            console.log("Error downloading "+url);
+                            reject(err);
+                        }
+                        resolve();
+                    });
+                    
+                } else {
+                    console.log("skipping download");
+                    resolve();
+                }
+            });
     });
-});
+}
 
-// curl -H "Content-Type: multipart/form-data" -u admin:admin -F 'interpreter="/bin/bash -s hellooooooo"' -F "env1=value1" -F "env2=value2" -F "script=@test.sh" -F "testfile=@testfile" -X POST 'http://localhost:4041/pipeexec'
-// uploads all files not called "script" to the upload dir and executes 'script' via pipe to the interpreter with the other form fields not called 'interpreter' as env vars
 
-app.post('/pipeexec', (req, res) => {
-    try {
-        let script = req.files.script;
-        // console.log('files passed '+util.inspect(req.body, {depth: 3}));
-        const { interpreter } = req.body;
-
+async function depedenciesAndEnv(req,fieldsToIgnore) {
+    return new Promise((resolve, reject) => {
+        env={};
+        var all = [];
+        for (const [key, value] of Object.entries(req.body)) {
+            if(!fieldsToIgnore.includes(key)) {
+                env[key]=value;
+            }
+        }
         for (const [key, value] of Object.entries(req.files)) {
-            if(key !== "script") {
+            if(!fieldsToIgnore.includes(key) && key !== "URLS") {
                 const fullname = UPLOAD_DIR + '/' + req.files[key].name;
                 //Use the mv() method to place the file in upload directory (i.e. "uploads")
                 req.files[key].mv(fullname, (err) => {
                     if (err)
-                        res.status(500).send(err);
+                        reject(err);
                 });
+            } else if(key === "URLS") {
+                const urls=req.files.URLS.data.toString('utf8').split('\n');
+                for (const url of urls) {
+                    if(url.trim().length>0 && !url.trim().startsWith("#")) {
+                        console.log("localizing",url);
+                        if(url.trim().toLowerCase().startsWith("http")) {
+                            const elems=url.split('|');
+                            var localName=elems[0].split("/").pop();
+                            if(elems.length>1) { // explicit local name
+                                localName=elems[1];
+                            }
+                            const fullname = UPLOAD_DIR + '/' + localName;
+                            const result=checkAndDownload(elems[0],fullname);
+                            all.push(result);
+                        } else {
+                            console.log("warning, skipping URL because it does not begin with http, so it might be an attempt to do local-file traversal");
+                        }
+                    }
+                }
             }
         }
-        env={};
-        for (const [key, value] of Object.entries(req.body)) {
-            if(key !== "interpreter") {
-                env[key]=value;
-            }
-        }
+        // this will fail when any checkAndDownload fails and resolve when all are resolved
+        Promise.all(all).then(function(ret) {
+                resolve(env);
+            }).catch(function(err) {
+                console.error("checkAndDownload failed", err);
+                reject(err);
+            });
+    });
+}
+
+// curl -H "Content-Type: multipart/form-data"  -u admin:admin -F "cmd=ls -lrt" -F "env1=value1" -F "env2=value2" -F "script=@sample_scripts/helloworld.sh" -F "testfile=@testfile" -F "URLS=@sample_scripts/dependencies.urls" -X POST 'http://localhost:4041/cmd'
+// or with httpie
+// http -a admin:admin POST localhost:4041/cmd cmd="ls -lrt"
+
+app.post('/cmd', async (req, res) => {
+    try {
+        const { cmd } = req.body;
+        const env=await depedenciesAndEnv(req,["cmd"]);
+        // console.log("Executing command" + cmd)
+        const process = exec(cmd, { "cwd": UPLOAD_DIR, "env": env}, function (error, stdout, stderr) {
+            result = { 'cmd': cmd, 'stdout': stdout, 'stderr': stderr, 'error': {} }
+            if (error)
+                result["error"] = { "code": error.code, "signal": error.signal, "stack": error.stack };
+            res.send(result);
+        });
+    } catch (err) {
+        console.log("cmd catch", err);
+        res.status(500).send(err);
+    }
+});
+
+// curl -H "Content-Type: multipart/form-data" -u admin:admin -F 'interpreter="/bin/bash -s hellooooooo"' -F "env1=value1" -F "env2=value2" -F "script=@sample_scripts/helloworld.sh" -F "testfile=@testfile" -F "URLS=@sample_scripts/dependencies.urls" -X POST 'http://localhost:4041/pipeexec'
+// uploads all files not called "script" to the upload dir and executes 'script' via pipe to the interpreter with the other form fields not called 'interpreter' as env vars
+//
+// On the files post-ed, you can have a special file that is named "URLS", that contain one line per URL-based localization plus an optional local name in the form:
+// http://example.com/myfile|mylocalfilename
+// http://example.com/myfile2|mylocalfilename2
+// http://example.com/myfile3
+// .
+// .
+// .
+// The localization logic tries to first request the name of the same URL, but with .md5 appended, and if it exists, uses that to check if we have the local file already localized and if it matches, it does
+// not download the file again, since the idea of URLS is that it will be used for bigger files not practical to be POST-ed directly.
+
+app.post('/pipeexec', async (req, res) => {
+    try {
+        let script = req.files.script;
+        // console.log('files passed '+util.inspect(req.body, {depth: 3}));
+        const { interpreter } = req.body;
+        const env=await depedenciesAndEnv(req,["script","interpreter"]);
         // console.log("before exec:", interpreter,{ "cwd": UPLOAD_DIR, "env": env});
         const process = exec(interpreter,{ "cwd": UPLOAD_DIR, "env": env} , function (error, stdout, stderr) {
             result = { 'cmd': interpreter, 'stdout': stdout, 'stderr': stderr, 'error': {} }
@@ -209,6 +303,23 @@ function startTerminal(){
 
 	console.log('Created shell with node-pty master/slave pair (master: %d, pid: %d)', term.fd, term.pid);
     return term;
+}
+
+var download = function(url, dest, cb) {
+    var file = fs.createWriteStream(dest);
+    const ht = url.startsWith("https") ? https : http;
+    var request = ht.get(url, function(response) {
+            response.pipe(file);
+            file.on('finish', function() {
+            file.close(cb); 
+        }).on('error', function(err) {
+            console.log("cannot save local file "+ dest + " from url="+url,err);
+            fs.unlink(dest);
+            if (cb) cb(err.message);
+        });
+    }).on('error', (e) => {
+        cb(e.message);
+    });
 }
 
 var term = startTerminal();
