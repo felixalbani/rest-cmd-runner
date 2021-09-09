@@ -162,6 +162,8 @@ app.post('/cmd', async (req, res) => {
             result = { 'cmd': cmd, 'stdout': stdout, 'stderr': stderr, 'error': {} }
             if (error)
                 result["error"] = { "code": error.code, "signal": error.signal, "stack": error.stack };
+            else
+                result["code"] = 0;
             res.send(result);
         });
     } catch (err) {
