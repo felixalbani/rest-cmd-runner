@@ -108,30 +108,32 @@ async function depedenciesAndEnv(req,fieldsToIgnore) {
                 env[key]=value;
             }
         }
-        for (const [key, value] of Object.entries(req.files)) {
-            if(!fieldsToIgnore.includes(key) && key !== "URLS") {
-                const fullname = UPLOAD_DIR + '/' + req.files[key].name;
-                //Use the mv() method to place the file in upload directory (i.e. "uploads")
-                req.files[key].mv(fullname, (err) => {
-                    if (err)
-                        reject(err);
-                });
-            } else if(key === "URLS") {
-                const urls=req.files.URLS.data.toString('utf8').split('\n');
-                for (const url of urls) {
-                    if(url.trim().length>0 && !url.trim().startsWith("#")) {
-                        console.log("localizing",url);
-                        if(url.trim().toLowerCase().startsWith("http")) {
-                            const elems=url.split('|');
-                            var localName=elems[0].split("/").pop();
-                            if(elems.length>1) { // explicit local name
-                                localName=elems[1];
+        if(req.files) {
+            for (const [key, value] of Object.entries(req.files)) {
+                if(!fieldsToIgnore.includes(key) && key !== "URLS") {
+                    const fullname = UPLOAD_DIR + '/' + req.files[key].name;
+                    //Use the mv() method to place the file in upload directory (i.e. "uploads")
+                    req.files[key].mv(fullname, (err) => {
+                        if (err)
+                            reject(err);
+                    });
+                } else if(key === "URLS") {
+                    const urls=req.files.URLS.data.toString('utf8').split('\n');
+                    for (const url of urls) {
+                        if(url.trim().length>0 && !url.trim().startsWith("#")) {
+                            console.log("localizing",url);
+                            if(url.trim().toLowerCase().startsWith("http")) {
+                                const elems=url.split('|');
+                                var localName=elems[0].split("/").pop();
+                                if(elems.length>1) { // explicit local name
+                                    localName=elems[1];
+                                }
+                                const fullname = UPLOAD_DIR + '/' + localName;
+                                const result=checkAndDownload(elems[0],fullname);
+                                all.push(result);
+                            } else {
+                                console.log("warning, skipping URL because it does not begin with http, so it might be an attempt to do local-file traversal");
                             }
-                            const fullname = UPLOAD_DIR + '/' + localName;
-                            const result=checkAndDownload(elems[0],fullname);
-                            all.push(result);
-                        } else {
-                            console.log("warning, skipping URL because it does not begin with http, so it might be an attempt to do local-file traversal");
                         }
                     }
                 }
